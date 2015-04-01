@@ -43,6 +43,7 @@ class NullableDataBag(HStoreModel):
     name = models.CharField(max_length=32)
     data = hstore.DictionaryField(null=True)
 
+
 class RefsBag(HStoreModel):
     name = models.CharField(max_length=32)
     refs = hstore.ReferencesField()
@@ -65,7 +66,7 @@ class BadDefaultsModel(models.Model):
 
 class DefaultsInline(models.Model):
     parent = models.ForeignKey(DefaultsModel)
-    d = hstore.DictionaryField(default={ 'default': 'yes' })
+    d = hstore.DictionaryField(default={'default': 'yes'})
 
 
 class NumberedDataBag(HStoreModel):
@@ -77,9 +78,9 @@ class NumberedDataBag(HStoreModel):
 class UniqueTogetherDataBag(HStoreModel):
     name = models.CharField(max_length=32)
     data = hstore.DictionaryField()
-    
+
     class Meta:
-        unique_together =  ("name", "data")
+        unique_together = ('name', 'data')
 
 if get_version()[0:3] >= '1.6':
     class SchemaDataBag(HStoreModel):
@@ -155,7 +156,8 @@ if get_version()[0:3] >= '1.6':
                 'name': 'datetime',
                 'class': 'DateTimeField',
                 'kwargs': {
-                    'blank': True
+                    'blank': True,
+                    'null': True
                 }
             },
             {
@@ -190,18 +192,19 @@ if get_version()[0:3] >= '1.6':
                 }
             },
         ])
-    
+
     __all__.append('SchemaDataBag')
 
 
 # if geodjango is in use define Location model, which contains GIS data
 if GEODJANGO:
     from django.contrib.gis.db import models as geo_models
+
     class Location(geo_models.Model):
         name = geo_models.CharField(max_length=32)
         data = hstore.DictionaryField()
         point = geo_models.GeometryField()
-    
+
         objects = hstore.HStoreGeoManager()
-    
+
     __all__.append('Location')

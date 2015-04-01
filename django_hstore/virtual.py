@@ -94,12 +94,11 @@ def create_hstore_virtual_field(field_cls, kwargs, hstore_field_name):
             specific for django 1.7 and greater (migration framework)
             """
             name, path, args, kwargs = super(VirtualField, self).deconstruct(*args, **kwargs)
-            return (name, path, args, { 'default': kwargs.get('default')})
+            return (name, path, args, {'default': kwargs.get('default')})
 
     # support DateTimeField
-    if BaseField == models.DateTimeField and kwargs.get('default') is None:
-        import datetime
-        kwargs['default'] = datetime.datetime.utcnow()
+    if BaseField == models.DateTimeField and (kwargs.get('null') or kwargs.get('blank')):
+        kwargs['default'] = None
 
     # support Date and DateTime in django-rest-framework-hstore
     if BaseField == models.DateTimeField or BaseField == models.DateField:
@@ -107,7 +106,7 @@ def create_hstore_virtual_field(field_cls, kwargs, hstore_field_name):
             val = self._get_val_from_obj(obj)
             try:
                 return '' if val is None else val.isoformat()
-            except AttributeError as e:
+            except AttributeError:
                 return val
         VirtualField.value_to_string = value_to_string
 
