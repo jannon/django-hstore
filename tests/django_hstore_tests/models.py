@@ -11,6 +11,7 @@ GEODJANGO = settings.DATABASES['default']['ENGINE'] == 'django.contrib.gis.db.ba
 __all__ = [
     'Ref',
     'DataBag',
+    'SerializedDataBag',
     'NullableDataBag',
     'RefsBag',
     'NullableRefsBag',
@@ -37,6 +38,11 @@ class HStoreModel(models.Model):
 class DataBag(HStoreModel):
     name = models.CharField(max_length=32)
     data = hstore.DictionaryField()
+
+
+class SerializedDataBag(HStoreModel):
+    name = models.CharField(max_length=32)
+    data = hstore.SerializedDictionaryField()
 
 
 class NullableDataBag(HStoreModel):
@@ -193,7 +199,27 @@ if get_version()[0:3] >= '1.6':
             },
         ])
 
+    class NullSchemaDataBag(HStoreModel):
+        name = models.CharField(max_length=32)
+        data = hstore.DictionaryField(null=True, default=None, schema=[
+            {
+                'name': 'number',
+                'class': 'IntegerField',
+                'kwargs': {
+                    'default': 1
+                }
+            },
+            {
+                'name': 'char',
+                'class': 'CharField',
+                'kwargs': {
+                    'default': 'test', 'blank': True, 'max_length': 10
+                }
+            }
+        ])
+
     __all__.append('SchemaDataBag')
+    __all__.append('NullSchemaDataBag')
 
 
 # if geodjango is in use define Location model, which contains GIS data

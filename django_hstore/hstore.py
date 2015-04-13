@@ -1,4 +1,4 @@
-from django_hstore.fields import DictionaryField, ReferencesField  # noqa
+from django_hstore.fields import DictionaryField, ReferencesField, SerializedDictionaryField  # noqa
 from django_hstore.managers import HStoreManager  # noqa
 
 

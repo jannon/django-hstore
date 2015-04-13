@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import six
 from django.utils.functional import curry
+from .dict import HStoreDict
 
 
 __all__ = [
@@ -45,14 +46,21 @@ class HStoreVirtualMixin(object):
         """
         if instance is None:
             raise AttributeError('Can only be accessed via instance')
-
-        return getattr(instance, self.hstore_field_name).get(self.name, self.default)
+        field = getattr(instance, self.hstore_field_name)
+        if not field:
+            return self.default
+        return field.get(self.name, self.default)
 
     def __set__(self, instance, value):
         """
         set value on hstore dictionary
         """
         hstore_dictionary = getattr(instance, self.hstore_field_name)
+        if hstore_dictionary is None:
+            # init empty HStoreDict
+            setattr(instance, self.hstore_field_name, HStoreDict())
+            # reassign
+            hstore_dictionary = getattr(instance, self.hstore_field_name)
         hstore_dictionary[self.name] = value
 
     # end descriptor methods

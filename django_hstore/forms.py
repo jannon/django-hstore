@@ -14,8 +14,8 @@ from .widgets import AdminHStoreWidget
 from . import utils
 
 
-def validate_hstore(value):
-    """ HSTORE validation """
+def validate_hstore(value, is_serialized=False):
+    """ HSTORE validation. """
     # if empty
     if value == '' or value == 'null':
         value = '{}'
@@ -25,6 +25,10 @@ def validate_hstore(value):
         # convert strings to dictionaries
         if isinstance(value, six.string_types):
             dictionary = json.loads(value)
+
+            # if serialized field, deserialize values
+            if is_serialized and isinstance(dictionary, dict):
+                dictionary = dict((k, json.loads(v)) for k, v in dictionary.items())  # TODO: modify to use field's deserializer
         # if not a string we'll check at the next control if it's a dict
         else:
             dictionary = value
@@ -39,14 +43,14 @@ def validate_hstore(value):
     for key, value in dictionary.items():
         if isinstance(value, dict) or isinstance(value, list):
             dictionary[key] = json.dumps(value)
-        elif isinstance(value, bool) or isinstance(value, int) or isinstance(value, float):
-            dictionary[key] = unicode(value).lower()
+        if isinstance(value, bool) or isinstance(value, int) or isinstance(value, float):
+            if not is_serialized:  # Only convert if not from serializedfield
+                dictionary[key] = six.text_type(value).lower()
 
     return dictionary
 
 
 class JsonMixin(object):
-
     def to_python(self, value):
         return validate_hstore(value)
 
@@ -58,12 +62,30 @@ class JsonMixin(object):
         return super(JsonMixin, self).render(name, value, attrs)
 
 
+class SerializedJsonMixin(JsonMixin):
+    def to_python(self, value):
+        return validate_hstore(value, is_serialized=True)
+
+    def render(self, name, value, attrs=None):
+        if isinstance(value, dict):
+            value = dict((k, json.dumps(v)) for k, v in value.items())  # TODO: Modify to use field's serializer
+
+        # return json representation of a meaningful value
+        # doesn't show anything for None, empty strings or empty dictionaries
+        if value and not isinstance(value, six.string_types):
+            value = json.dumps(value, sort_keys=True, indent=4)
+        return super(SerializedJsonMixin, self).render(name, value, attrs)
+
+
 class DictionaryFieldWidget(JsonMixin, AdminHStoreWidget):
     pass
 
 
-class ReferencesFieldWidget(JsonMixin, AdminHStoreWidget):
+class SerializedDictionaryFieldWidget(SerializedJsonMixin, AdminHStoreWidget):
+    pass
 
+
+class ReferencesFieldWidget(JsonMixin, AdminHStoreWidget):
     def render(self, name, value, attrs=None):
         value = utils.serialize_references(value)
         return super(ReferencesFieldWidget, self).render(name, value, attrs)
@@ -76,6 +98,15 @@ class DictionaryField(JsonMixin, Field):
     def __init__(self, **params):
         params['widget'] = params.get('widget', DictionaryFieldWidget)
         super(DictionaryField, self).__init__(**params)
+
+
+class SerializedDictionaryField(SerializedJsonMixin, Field):
+    """
+    Serialized dictionary field.
+    """
+    def __init__(self, **params):
+        params['widget'] = params.get('widget', SerializedDictionaryFieldWidget)
+        super(SerializedDictionaryField, self).__init__(**params)
 
 
 class ReferencesField(JsonMixin, Field):
