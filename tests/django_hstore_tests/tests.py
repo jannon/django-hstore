@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import sys
 import json
 import pickle
@@ -18,6 +19,7 @@ from django.test import TestCase
 from django.test import SimpleTestCase
 
 from django_hstore import get_version, hstore
+from django_hstore.apps import GEODJANGO_INSTALLED
 from django_hstore.forms import DictionaryFieldWidget, ReferencesFieldWidget, SerializedDictionaryFieldWidget
 from django_hstore.fields import HStoreDict
 from django_hstore.exceptions import HStoreDictException
@@ -462,7 +464,7 @@ class TestDictionaryField(TestCase):
         with self.assertRaises(HStoreDictException):
             HStoreDict(3)
 
-    def test_hstoredictionary_unicoce_vs_str(self):
+    def test_hstoredictionary_unicode_vs_str(self):
         d = HStoreDict({'test': 'test'})
         self.assertEqual(d.__str__(), d.__unicode__())
 
@@ -627,10 +629,12 @@ class TestSerializedDictionaryField(TestCase):
         return alpha, beta
 
     def _create_bitfield_bags(self):
-        # create dictionaries with bits as dictionary keys (i.e. bag5 = { 'b0':'1', 'b2':'1'})
+        # create dictionaries with bits as dictionary keys (i.e. bag5 = {'b0':'1', 'b2':'1'})
         for i in range(10):
-            SerializedDataBag.objects.create(name='bag%d' % (i,),
-                                   data=dict(('b%d' % (bit,), '1') for bit in range(4) if (1 << bit) & i))
+            SerializedDataBag.objects.create(
+                name='bag%d' % (i,),
+                data=dict(('b%d' % (bit,), '1') for bit in range(4) if (1 << bit) & i)
+            )
 
     def test_hstore_dict(self):
         alpha, beta = self._create_bags()
@@ -646,7 +650,7 @@ class TestSerializedDictionaryField(TestCase):
         databag = SerializedDataBag.objects.get(name='number')
         self.assertEqual(databag.data['num'], 1)
 
-        databag = SerializedDataBag(name='number', data={ 'num': 1 })
+        databag = SerializedDataBag(name='number', data={'num': 1})
         self.assertEqual(databag.data['num'], 1)
 
     def test_full_clean(self):
@@ -660,12 +664,12 @@ class TestSerializedDictionaryField(TestCase):
         self.assertEqual(databag.data['num'], 1)
 
     def test_list(self):
-        databag = SerializedDataBag.objects.create(name='list', data={ 'list': ['a', 'b', 'c'] })
+        databag = SerializedDataBag.objects.create(name='list', data={'list': ['a', 'b', 'c']})
         databag = SerializedDataBag.objects.get(name='list')
         self.assertEqual(databag.data['list'], ['a', 'b', 'c'])
 
     def test_dictionary(self):
-        databag = SerializedDataBag.objects.create(name='dict', data={ 'dict': {'subkey': 'subvalue'} })
+        databag = SerializedDataBag.objects.create(name='dict', data={'dict': {'subkey': 'subvalue'}})
         databag = SerializedDataBag.objects.get(name='dict')
         self.assertEqual(databag.data['dict'], {'subkey': 'subvalue'})
 
@@ -674,7 +678,7 @@ class TestSerializedDictionaryField(TestCase):
         self.assertEqual(databag.data['dict'], {'subkey': True, 'list': ['a', 'b', False]})
 
     def test_boolean(self):
-        databag = SerializedDataBag.objects.create(name='boolean', data={ 'boolean': True })
+        databag = SerializedDataBag.objects.create(name='boolean', data={'boolean': True})
         databag = SerializedDataBag.objects.get(name='boolean')
         self.assertEqual(databag.data['boolean'], True)
 
@@ -894,7 +898,7 @@ class TestSerializedDictionaryField(TestCase):
 
     def test_simple_text_icontains_querying(self):
         alpha, beta = self._create_bags()
-        gamma = SerializedDataBag.objects.create(name='gamma', data={'theKey': 'someverySpecialValue', 'v2': '3'})
+        SerializedDataBag.objects.create(name='gamma', data={'theKey': 'someverySpecialValue', 'v2': '3'})
 
         self.assertEqual(SerializedDataBag.objects.filter(data__contains='very').count(), 1)
         self.assertEqual(SerializedDataBag.objects.filter(data__contains='very')[0].name, 'gamma')
@@ -943,19 +947,19 @@ class TestSerializedDictionaryField(TestCase):
     def test_invalid_comparison_lookup_values(self):
         alpha, beta = self._create_bags()
         with self.assertRaises(ValueError):
-            SerializedDataBag.objects.filter(data__lt=[1,2])[0]
+            SerializedDataBag.objects.filter(data__lt=[1, 2])[0]
         with self.assertRaises(ValueError):
             SerializedDataBag.objects.filter(data__lt=99)[0]
         with self.assertRaises(ValueError):
-            SerializedDataBag.objects.filter(data__lte=[1,2])[0]
+            SerializedDataBag.objects.filter(data__lte=[1, 2])[0]
         with self.assertRaises(ValueError):
             SerializedDataBag.objects.filter(data__lte=99)[0]
         with self.assertRaises(ValueError):
-            SerializedDataBag.objects.filter(data__gt=[1,2])[0]
+            SerializedDataBag.objects.filter(data__gt=[1, 2])[0]
         with self.assertRaises(ValueError):
             SerializedDataBag.objects.filter(data__gt=99)[0]
         with self.assertRaises(ValueError):
-            SerializedDataBag.objects.filter(data__gte=[1,2])[0]
+            SerializedDataBag.objects.filter(data__gte=[1, 2])[0]
         with self.assertRaises(ValueError):
             SerializedDataBag.objects.filter(data__gte=99)[0]
 
@@ -989,8 +993,8 @@ class TestSerializedDictionaryField(TestCase):
     def test_hupdate(self):
         alpha, beta = self._create_bags()
         self.assertEqual(SerializedDataBag.objects.get(name='alpha').data, alpha.data)
-        SerializedDataBag.objects.filter(name='alpha').hupdate('data', {'v2': '10', 'v3': {'a':'20'}})
-        self.assertEqual(SerializedDataBag.objects.get(name='alpha').data, {'v': 1, 'v2': '10', 'v3': {'a':'20'}})
+        SerializedDataBag.objects.filter(name='alpha').hupdate('data', {'v2': '10', 'v3': {'a': '20'}})
+        self.assertEqual(SerializedDataBag.objects.get(name='alpha').data, {'v': 1, 'v2': '10', 'v3': {'a': '20'}})
 
     def test_default(self):
         m = DefaultsModel()
@@ -1032,8 +1036,8 @@ class TestSerializedDictionaryField(TestCase):
         with self.assertRaises(HStoreDictException):
             HStoreDict(3)
 
-    def test_hstoredictionary_unicoce_vs_str(self):
-        d = HStoreDict({ 'test': 'test' })
+    def test_hstoredictionary_unicode_vs_str(self):
+        d = HStoreDict({'test': 'test'})
         self.assertEqual(d.__str__(), d.__unicode__())
 
     def test_hstore_model_field_validation(self):
@@ -1061,7 +1065,7 @@ class TestSerializedDictionaryField(TestCase):
             'a': 1,
             'b': 2.2,
             'c': ['a', 'b'],
-            'd': { 'test': 'test' }
+            'd': {'test': 'test'}
         }
 
         with self.assertRaises(ValidationError):
@@ -1134,13 +1138,13 @@ class TestSerializedDictionaryField(TestCase):
     def test_unique_together(self):
         d = UniqueTogetherDataBag()
         d.name = 'test'
-        d.data = { 'test': 'test '}
+        d.data = {'test': 'test '}
         d.full_clean()
         d.save()
 
         d = UniqueTogetherDataBag()
         d.name = 'test'
-        d.data = { 'test': 'test '}
+        d.data = {'test': 'test '}
         with self.assertRaises(ValidationError):
             d.full_clean()
 
@@ -1148,20 +1152,18 @@ class TestSerializedDictionaryField(TestCase):
         """
         Make sure the hstore field does what it is supposed to.
         """
-        from django_hstore.fields import HStoreDict
-
         instance = SerializedDataBag()
-        test_props = {'foo':'bar', 'size': '3'}
+        test_props = {'foo': 'bar', 'size': '3'}
 
         instance.name = "foo"
         instance.data = test_props
         instance.save()
 
-        self.assertEqual(type(instance.data), dict)
+        self.assertIsInstance(instance.data, dict)
         self.assertEqual(instance.data, test_props)
         instance = SerializedDataBag.objects.get(pk=instance.pk)
 
-        self.assertEqual(type(instance.data), dict)
+        self.assertIsInstance(instance.data, dict)
 
         self.assertEqual(instance.data, test_props)
         self.assertEqual(instance.data['size'], '3')
@@ -1510,6 +1512,53 @@ class SchemaTests(TestCase):
             d.number = 0
             self.assertEqual(d.char, '')
             self.assertEqual(d.number, 0)
+
+        if DJANGO_VERSION[:2] >= (1, 7):
+            def test_migrations(self):
+                """ failing test for https://github.com/djangonauts/django-hstore/issues/103 """
+                from django.core.management import call_command
+                if sys.version_info.major >= 3:
+                    from io import StringIO
+                else:
+                    from StringIO import StringIO
+                # start capturing output
+                output = StringIO()
+                sys.stdout = output
+                call_command('makemigrations', 'django_hstore_tests')
+                # stop capturing print statements
+                sys.stdout = sys.__stdout__
+                self.assertIn('0001_initial', output.getvalue())
+                path = '{0}/{1}'.format(os.path.dirname(__file__), 'migrations')
+                # add a new migration which replicates the bug in #103
+                with open('{0}/{1}'.format(path, '0002_issue_103.py'), 'w') as f:
+                    f.write("""# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+from django.db import models, migrations
+import datetime
+import django_hstore.virtual
+class Migration(migrations.Migration):
+    dependencies = [
+        ('django_hstore_tests', '0001_initial'),
+    ]
+    operations = [
+        migrations.AlterField(
+            model_name='schemadatabag',
+            name='datetime',
+            field=django_hstore.virtual.VirtualField(default=datetime.datetime(2015, 4, 19, 16, 44, 9, 417872)),
+            preserve_default=True,
+        ),
+    ]""")
+                    f.close()
+                # start capturing output
+                output = StringIO()
+                sys.stdout = output
+                call_command('migrate', 'django_hstore_tests')
+                # stop capturing print statements
+                sys.stdout = sys.__stdout__
+                self.assertIn('Applying django_hstore_tests.0002_issue_103... OK', output.getvalue())
+                # delete migration files
+                import shutil
+                shutil.rmtree(path)
     else:
         def test_improperly_configured(self):
             with self.assertRaises(ImproperlyConfigured):
@@ -1783,7 +1832,7 @@ class TestReferencesField(TestCase):
         self.assertEqual(str(r.refs), '{}')
 
 
-if GEODJANGO:
+if GEODJANGO_INSTALLED:
     from django.contrib.gis.geos import GEOSGeometry
 
     class TestDictionaryFieldPlusGIS(TestCase):
